@@ -52,7 +52,7 @@
         }
 
         .search-box {
-            margin-bottom: 30px;
+            margin-bottom: 10px;
         }
 
         .search-box input {
@@ -62,6 +62,16 @@
             border: 2px solid #e0e0e0;
             border-radius: 10px;
             transition: border-color 0.3s;
+        }
+
+        .search-hint {
+            margin-bottom: 30px;
+            padding: 10px 15px;
+            background: #f0f9ff;
+            color: #0369a1;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
         }
 
         .search-box input:focus {
@@ -233,7 +243,10 @@
             <div id="success-message" class="success" style="display: none;"></div>
 
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="法令名で検索（例：著作権、特定商取引、景品表示...）">
+                <input type="text" id="search-input" placeholder="法令名で検索（例：著作権法、消費税法）">
+            </div>
+            <div class="search-hint">
+                💡 部分一致で検索できます。「著作権」「消費税」など一部のキーワードでOK！
             </div>
 
             <div id="loading" class="loading">法令リストを読み込み中...</div>
