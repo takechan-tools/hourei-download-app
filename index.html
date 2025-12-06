@@ -443,11 +443,9 @@
         async function loadLaws() {
             try {
                 allLaws = await fetchLawList();
-                filteredLaws = allLaws.slice(0, 100); // 最初は100件表示
-                renderLaws();
+                filteredLaws = []; // 最初は非表示
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('law-list-container').style.display = 'block';
-                showSuccess(`${allLaws.length}件の法令を読み込みました！`);
+                showSuccess(`${allLaws.length}件の法令を読み込みました！検索してください。`);
             } catch (error) {
                 showError('法令リストの読み込みに失敗しました: ' + error.message);
                 document.getElementById('loading').textContent = 'エラーが発生しました';
@@ -459,8 +457,10 @@
             const query = e.target.value.toLowerCase();
             if (query) {
                 filteredLaws = allLaws.filter(law => law.toLowerCase().includes(query));
+                document.getElementById('law-list-container').style.display = 'block';
             } else {
-                filteredLaws = allLaws.slice(0, 100);
+                filteredLaws = [];
+                document.getElementById('law-list-container').style.display = 'none';
             }
             renderLaws();
         });
