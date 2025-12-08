@@ -280,6 +280,38 @@
             margin-bottom: 20px;
             border: 1px solid #ffc107;
         }
+
+        /* 法令種類バッジ */
+        .law-type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .law-type-法律 {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .law-type-政令 {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .law-type-省令 {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .law-type-その他 {
+            background: #f3f4f6;
+            color: #374151;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -332,6 +364,24 @@
         let filteredLaws = [];
         let selectedLaws = new Set();
         let lawIdMap = new Map();
+
+        // 法令の種類を判定する関数
+        function getLawType(lawName) {
+            // 省令（規則）を先にチェック（「施行規則」なども含む）
+            if (lawName.endsWith('規則')) {
+                return { type: '省令', label: '規則', className: 'law-type-省令' };
+            }
+            // 政令（令）をチェック（「施行令」なども含む）
+            if (lawName.endsWith('令') && !lawName.endsWith('規則')) {
+                return { type: '政令', label: '令', className: 'law-type-政令' };
+            }
+            // 法律（法）をチェック（「施行法」「特例法」などは除外しない）
+            if (lawName.endsWith('法') && !lawName.endsWith('施行令') && !lawName.endsWith('規則')) {
+                return { type: '法律', label: '法', className: 'law-type-法律' };
+            }
+            // その他
+            return { type: 'その他', label: 'その他', className: 'law-type-その他' };
+        }
 
         function sanitizeFilename(filename) {
             const invalidChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
@@ -517,9 +567,11 @@
                 list.innerHTML = '';
 
                 Array.from(selectedLaws).sort().forEach(law => {
+                    const lawType = getLawType(law);
                     const tag = document.createElement('div');
                     tag.className = 'selected-law-tag';
                     tag.innerHTML = `
+                        <span class="law-type-badge ${lawType.className}">${lawType.label}</span>
                         <span>${law}</span>
                         <span class="remove-btn" data-law="${law.replace(/"/g, '&quot;')}">×</span>
                     `;
@@ -557,12 +609,16 @@
             container.innerHTML = '';
 
             filteredLaws.forEach(law => {
+                const lawType = getLawType(law);
                 const item = document.createElement('div');
                 item.className = 'law-item';
                 const checkboxId = `law-${law.replace(/[^a-zA-Z0-9]/g, '-')}`;
                 item.innerHTML = `
                     <input type="checkbox" id="${checkboxId}" value="${law.replace(/"/g, '&quot;')}">
-                    <label for="${checkboxId}">${law}</label>
+                    <label for="${checkboxId}">
+                        <span class="law-type-badge ${lawType.className}">${lawType.label}</span>
+                        ${law}
+                    </label>
                 `;
                 const checkbox = item.querySelector('input');
                 checkbox.checked = selectedLaws.has(law);
