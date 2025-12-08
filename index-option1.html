@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法令ダウンロードアプリ（Option 1: 選択した法令を常に表示）</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 3px solid #3b82f6;
+            color: #1e293b;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #3b82f6;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: #64748b;
+        }
+
+        .option-badge {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .search-box {
+            margin-bottom: 10px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .search-hint {
+            margin-bottom: 30px;
+            padding: 10px 15px;
+            background: #f0f9ff;
+            color: #0369a1;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .list-section-title {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #eff6ff;
+            color: #1e40af;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .law-list {
+            max-height: 350px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 30px;
+        }
+
+        .law-item {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .law-item:hover {
+            background-color: #f0f9ff;
+        }
+
+        .law-item:last-child {
+            border-bottom: none;
+        }
+
+        .law-item input[type="checkbox"] {
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .law-item label {
+            flex: 1;
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .selected-count {
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            border: 2px solid #3b82f6;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: #efe;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .select-all {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: #f8f8f8;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .select-all input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+        }
+
+        .select-all label {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .cors-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ffc107;
+        }
+    </style>
+    <!-- JSZipライブラリをCDNから読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 法令ダウンロードアプリ</h1>
+            <p>e-Gov法令APIから法令を検索して、Markdown形式でダウンロード</p>
+            <div class="option-badge">Option 1: 選択した法令を常に表示</div>
+        </div>
+        <div class="content">
+            <div id="cors-warning" class="cors-warning" style="display: none;">
+                ⚠️ CORSエラーが発生しました。ブラウザの拡張機能（CORS解除など）を使用するか、別の方法をお試しください。
+            </div>
+            <div id="error-message" class="error" style="display: none;"></div>
+            <div id="success-message" class="success" style="display: none;"></div>
+
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="法令名で検索（例：著作権法、消費税法）">
+            </div>
+            <div class="search-hint">
+                💡 部分一致で検索できます。「著作権」「消費税」など一部のキーワードでOK！
+            </div>
+
+            <div id="loading" class="loading">法令リストを読み込み中...</div>
+
+            <div id="law-list-container" style="display: none;">
+                <div id="list-section-title" class="list-section-title"></div>
+                <div class="select-all">
+                    <input type="checkbox" id="select-all-checkbox">
+                    <label for="select-all-checkbox">すべて選択 / すべて解除</label>
+                </div>
+                <div class="law-list" id="law-list"></div>
+                <div class="selected-count" id="selected-count">選択された法令: 0件</div>
+                <div class="button-group">
+                    <button class="btn btn-primary" id="download-btn" disabled>選択した法令をダウンロード</button>
+                    <button class="btn btn-secondary" id="clear-btn">選択をクリア</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        let allLaws = [];
+        let filteredLaws = [];
+        let selectedLaws = new Set();
+        let lawIdMap = new Map();
+
+        function sanitizeFilename(filename) {
+            const invalidChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+            let safe = filename;
+            for (const char of invalidChars) {
+                safe = safe.replace(new RegExp('\\' + char, 'g'), '_');
+            }
+            return safe;
+        }
+
+        async function fetchLawList() {
+            try {
+                const listUrl = "https://elaws.e-gov.go.jp/api/1/lawlists/1";
+                const response = await fetch(listUrl);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+                const parseError = xmlDoc.querySelector("parsererror");
+                if (parseError) {
+                    throw new Error("XMLのパースに失敗しました");
+                }
+
+                const laws = [];
+                const lawNameElements = xmlDoc.querySelectorAll("LawNameListInfo");
+
+                lawNameElements.forEach(lawInfo => {
+                    const lawNameElement = lawInfo.querySelector("LawName");
+                    const lawIdElement = lawInfo.querySelector("LawId");
+
+                    if (lawNameElement && lawNameElement.textContent) {
+                        const lawName = lawNameElement.textContent.trim();
+                        const lawId = lawIdElement ? lawIdElement.textContent.trim() : null;
+
+                        laws.push(lawName);
+                        if (lawId) {
+                            lawIdMap.set(lawName, lawId);
+                        }
+                    }
+                });
+
+                return laws.sort();
+            } catch (error) {
+                console.error("Error fetching law list:", error);
+
+                if (error.message.includes("CORS") || error.message.includes("Failed to fetch") || error.name === "TypeError") {
+                    document.getElementById("cors-warning").style.display = "block";
+                    throw new Error("CORSエラー: e-Gov APIへの直接アクセスがブロックされました。");
+                }
+
+                throw error;
+            }
+        }
+
+        async function fetchLawData(lawName) {
+            try {
+                const lawId = lawIdMap.get(lawName);
+                if (!lawId) {
+                    await fetchLawList();
+                    const retryLawId = lawIdMap.get(lawName);
+                    if (!retryLawId) {
+                        throw new Error(`法令IDが見つかりません: ${lawName}`);
+                    }
+                    return await fetchLawDataById(retryLawId, lawName);
+                }
+                return await fetchLawDataById(lawId, lawName);
+            } catch (error) {
+                console.error(`Error fetching law data for ${lawName}:`, error);
+                throw error;
+            }
+        }
+
+        async function fetchLawDataById(lawId, lawName) {
+            try {
+                const detailUrl = `https://elaws.e-gov.go.jp/api/1/lawdata/${lawId}`;
+                const response = await fetch(detailUrl);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const xmlText = await response.text();
+                return { xmlText, lawName };
+            } catch (error) {
+                console.error(`Error fetching law data by ID ${lawId}:`, error);
+                throw error;
+            }
+        }
+
+        function parseToMarkdown(xmlText, lawName) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+                const parseError = xmlDoc.querySelector("parsererror");
+                if (parseError) {
+                    throw new Error("XMLのパースに失敗しました");
+                }
+
+                let markdownText = `# ${lawName}\n\n`;
+
+                const articles = xmlDoc.querySelectorAll("Article");
+
+                articles.forEach(article => {
+                    const articleCaption = article.querySelector("ArticleCaption");
+                    const articleTitle = article.querySelector("ArticleTitle");
+
+                    const captionText = articleCaption ? (articleCaption.textContent || "").trim() : "";
+                    const titleText = articleTitle ? (articleTitle.textContent || "").trim() : "";
+
+                    markdownText += `## ${titleText} ${captionText}\n`;
+
+                    const paragraphs = article.querySelectorAll("Paragraph");
+                    paragraphs.forEach(p => {
+                        const pNum = p.querySelector("ParagraphNum");
+                        const pSent = p.querySelector("Sentence");
+
+                        const numText = pNum ? (pNum.textContent || "").trim() : "";
+                        const sentText = pSent ? (pSent.textContent || "").trim() : "";
+
+                        markdownText += `- **${numText}**: ${sentText}\n`;
+
+                        const items = p.querySelectorAll("Item");
+                        items.forEach(item => {
+                            const iTitle = item.querySelector("ItemTitle");
+                            const iSent = item.querySelector("Sentence");
+
+                            const itText = iTitle ? (iTitle.textContent || "").trim() : "";
+                            const isText = iSent ? (iSent.textContent || "").trim() : "";
+
+                            markdownText += `    - **${itText}**: ${isText}\n`;
+
+                            const subitems1 = item.querySelectorAll("Subitem1");
+                            subitems1.forEach(sub1 => {
+                                const s1Title = sub1.querySelector("Subitem1Title");
+                                const s1Sent = sub1.querySelector("Sentence");
+
+                                const s1_t_text = s1Title ? (s1Title.textContent || "").trim() : "";
+                                const s1_s_text = s1Sent ? (s1Sent.textContent || "").trim() : "";
+
+                                markdownText += `        - **${s1_t_text}**: ${s1_s_text}\n`;
+                            });
+                        });
+                    });
+
+                    markdownText += "\n";
+                });
+
+                return markdownText;
+            } catch (error) {
+                console.error("Error parsing XML to Markdown:", error);
+                throw error;
+            }
+        }
+
+        async function loadLaws() {
+            try {
+                allLaws = await fetchLawList();
+                filteredLaws = [];
+                document.getElementById('loading').style.display = 'none';
+                showSuccess(`${allLaws.length}件の法令を読み込みました！検索してください。`);
+            } catch (error) {
+                showError('法令リストの読み込みに失敗しました: ' + error.message);
+                document.getElementById('loading').textContent = 'エラーが発生しました';
+            }
+        }
+
+        // Option 1: 検索ボックスが空でも選択した法令を表示
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (query) {
+                // 検索中
+                filteredLaws = allLaws.filter(law => law.toLowerCase().includes(query));
+                document.getElementById('list-section-title').textContent = `検索結果 (${filteredLaws.length}件)`;
+            } else {
+                // 検索ボックスが空の場合、選択した法令のみ表示
+                filteredLaws = Array.from(selectedLaws).sort();
+                if (selectedLaws.size > 0) {
+                    document.getElementById('list-section-title').textContent = `選択中の法令 (${selectedLaws.size}件)`;
+                } else {
+                    document.getElementById('list-section-title').textContent = '';
+                }
+            }
+
+            // リストがある場合のみ表示
+            if (filteredLaws.length > 0) {
+                document.getElementById('law-list-container').style.display = 'block';
+            } else {
+                document.getElementById('law-list-container').style.display = 'none';
+            }
+
+            renderLaws();
+        });
+
+        function renderLaws() {
+            const container = document.getElementById('law-list');
+            container.innerHTML = '';
+
+            filteredLaws.forEach(law => {
+                const item = document.createElement('div');
+                item.className = 'law-item';
+                const checkboxId = `law-${law.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                item.innerHTML = `
+                    <input type="checkbox" id="${checkboxId}" value="${law.replace(/"/g, '&quot;')}">
+                    <label for="${checkboxId}">${law}</label>
+                `;
+                const checkbox = item.querySelector('input');
+                checkbox.checked = selectedLaws.has(law);
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedLaws.add(law);
+                    } else {
+                        selectedLaws.delete(law);
+                    }
+                    updateSelectedCount();
+                    // 検索ボックスが空の場合、リストを更新
+                    const searchQuery = document.getElementById('search-input').value;
+                    if (!searchQuery) {
+                        filteredLaws = Array.from(selectedLaws).sort();
+                        if (selectedLaws.size > 0) {
+                            document.getElementById('list-section-title').textContent = `選択中の法令 (${selectedLaws.size}件)`;
+                        } else {
+                            document.getElementById('list-section-title').textContent = '';
+                            document.getElementById('law-list-container').style.display = 'none';
+                        }
+                        renderLaws();
+                    }
+                });
+                container.appendChild(item);
+            });
+            updateSelectAllCheckbox();
+        }
+
+        document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
+            filteredLaws.forEach(law => {
+                if (e.target.checked) {
+                    selectedLaws.add(law);
+                } else {
+                    selectedLaws.delete(law);
+                }
+            });
+            renderLaws();
+            updateSelectedCount();
+        });
+
+        function updateSelectAllCheckbox() {
+            const allChecked = filteredLaws.length > 0 && filteredLaws.every(law => selectedLaws.has(law));
+            document.getElementById('select-all-checkbox').checked = allChecked;
+        }
+
+        function updateSelectedCount() {
+            const count = selectedLaws.size;
+            document.getElementById('selected-count').textContent = `選択された法令: ${count}件`;
+            document.getElementById('download-btn').disabled = count === 0;
+            updateSelectAllCheckbox();
+        }
+
+        document.getElementById('download-btn').addEventListener('click', async () => {
+            if (selectedLaws.size === 0) return;
+
+            const btn = document.getElementById('download-btn');
+            btn.disabled = true;
+            btn.textContent = 'ダウンロード中...';
+
+            try {
+                const zip = new JSZip();
+                const lawNames = Array.from(selectedLaws);
+                let successCount = 0;
+                let errorCount = 0;
+
+                const progressDiv = document.createElement('div');
+                progressDiv.className = 'loading';
+                progressDiv.id = 'download-progress';
+                progressDiv.textContent = `0/${lawNames.length} 件処理中...`;
+                const buttonGroup = document.querySelector('.button-group');
+                buttonGroup.parentElement.insertBefore(progressDiv, buttonGroup);
+
+                for (let i = 0; i < lawNames.length; i++) {
+                    const lawName = lawNames[i];
+                    progressDiv.textContent = `${i + 1}/${lawNames.length} 件処理中... (${lawName})`;
+
+                    try {
+                        const { xmlText, lawName: fetchedLawName } = await fetchLawData(lawName);
+                        const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName);
+                        const safeName = sanitizeFilename(fetchedLawName || lawName);
+                        const filename = `${safeName}.md`;
+                        zip.file(filename, mdOutput);
+                        successCount++;
+                    } catch (error) {
+                        console.error(`Failed to download ${lawName}:`, error);
+                        errorCount++;
+                    }
+                }
+
+                progressDiv.remove();
+
+                if (successCount === 0) {
+                    throw new Error('すべての法令のダウンロードに失敗しました');
+                }
+
+                const blob = await zip.generateAsync({ type: "blob" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = `法令_${timestamp}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                if (errorCount > 0) {
+                    showError(`${successCount}件のダウンロードに成功しましたが、${errorCount}件は失敗しました。`);
+                } else {
+                    showSuccess(`${successCount}件の法令をダウンロードしました！`);
+                }
+            } catch (error) {
+                showError('ダウンロードに失敗しました: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '選択した法令をダウンロード';
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            selectedLaws.clear();
+            renderLaws();
+            updateSelectedCount();
+            const searchQuery = document.getElementById('search-input').value;
+            if (!searchQuery) {
+                document.getElementById('law-list-container').style.display = 'none';
+            }
+        });
+
+        function showError(message) {
+            const el = document.getElementById('error-message');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 10000);
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('success-message');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        loadLaws();
+    </script>
+</body>
+</html>
