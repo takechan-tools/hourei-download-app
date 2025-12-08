@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>法令ダウンロードアプリ（スタンドアロン版）</title>
+    <title>法令ダウンロードアプリ</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
     <style>
         * {
@@ -78,6 +78,50 @@
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* 選択中の法令セクション */
+        .selected-laws-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #eff6ff;
+            border: 2px solid #3b82f6;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .selected-laws-section h3 {
+            color: #1e40af;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .selected-laws-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .selected-law-tag {
+            background: white;
+            color: #1e40af;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .selected-law-tag .remove-btn {
+            cursor: pointer;
+            color: #ef4444;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .selected-law-tag .remove-btn:hover {
+            color: #dc2626;
         }
 
         .law-list {
@@ -225,8 +269,39 @@
             margin-bottom: 20px;
             border: 1px solid #ffc107;
         }
+
+        /* 法令種類バッジ */
+        .law-type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .law-type-法律 {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .law-type-政令 {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .law-type-省令 {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .law-type-その他 {
+            background: #f3f4f6;
+            color: #374151;
+        }
     </style>
-    <!-- JSZipライブラリをCDNから読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
@@ -241,6 +316,12 @@
             </div>
             <div id="error-message" class="error" style="display: none;"></div>
             <div id="success-message" class="success" style="display: none;"></div>
+
+            <!-- 選択中の法令セクション -->
+            <div id="selected-laws-section" class="selected-laws-section">
+                <h3>📌 選択中の法令 (<span id="selected-laws-count">0</span>件)</h3>
+                <div id="selected-laws-list" class="selected-laws-list"></div>
+            </div>
 
             <div class="search-box">
                 <input type="text" id="search-input" placeholder="法令名で検索（例：著作権法、消費税法）">
@@ -270,9 +351,30 @@
         let allLaws = [];
         let filteredLaws = [];
         let selectedLaws = new Set();
-        let lawIdMap = new Map(); // 法令名 -> LawId のマッピング
+        let lawIdMap = new Map();
 
-        // ファイル名に使えない文字を置換
+        // 法令の種類を判定する関数
+        function getLawType(lawName) {
+            // 省令（規則）を先にチェック（「施行規則」なども含む）
+            if (lawName.endsWith('規則')) {
+                return { type: '省令', label: '規則', className: 'law-type-省令' };
+            }
+            // 政令（令）をチェック（「施行令」なども含む）
+            if (lawName.endsWith('令') && !lawName.endsWith('規則')) {
+                return { type: '政令', label: '令', className: 'law-type-政令' };
+            }
+            // 法律（「法律」で終わるもの）
+            if (lawName.endsWith('法律')) {
+                return { type: '法律', label: '法', className: 'law-type-法律' };
+            }
+            // 法律（「法」で終わるもの、ただし「施行令」「規則」は除外）
+            if (lawName.endsWith('法') && !lawName.endsWith('施行令') && !lawName.endsWith('規則')) {
+                return { type: '法律', label: '法', className: 'law-type-法律' };
+            }
+            // その他
+            return { type: 'その他', label: 'その他', className: 'law-type-その他' };
+        }
+
         function sanitizeFilename(filename) {
             const invalidChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
             let safe = filename;
@@ -282,12 +384,11 @@
             return safe;
         }
 
-        // e-Gov APIから法令リストを取得
         async function fetchLawList() {
             try {
                 const listUrl = "https://elaws.e-gov.go.jp/api/1/lawlists/1";
                 const response = await fetch(listUrl);
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -296,7 +397,6 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
-                // XMLパースエラーチェック
                 const parseError = xmlDoc.querySelector("parsererror");
                 if (parseError) {
                     throw new Error("XMLのパースに失敗しました");
@@ -308,11 +408,11 @@
                 lawNameElements.forEach(lawInfo => {
                     const lawNameElement = lawInfo.querySelector("LawName");
                     const lawIdElement = lawInfo.querySelector("LawId");
-                    
+
                     if (lawNameElement && lawNameElement.textContent) {
                         const lawName = lawNameElement.textContent.trim();
                         const lawId = lawIdElement ? lawIdElement.textContent.trim() : null;
-                        
+
                         laws.push(lawName);
                         if (lawId) {
                             lawIdMap.set(lawName, lawId);
@@ -323,23 +423,20 @@
                 return laws.sort();
             } catch (error) {
                 console.error("Error fetching law list:", error);
-                
-                // CORSエラーの場合
+
                 if (error.message.includes("CORS") || error.message.includes("Failed to fetch") || error.name === "TypeError") {
                     document.getElementById("cors-warning").style.display = "block";
-                    throw new Error("CORSエラー: e-Gov APIへの直接アクセスがブロックされました。ブラウザの拡張機能（CORS解除など）を使用するか、プロキシサーバー経由でアクセスしてください。");
+                    throw new Error("CORSエラー: e-Gov APIへの直接アクセスがブロックされました。");
                 }
-                
+
                 throw error;
             }
         }
 
-        // e-Gov APIから法令データを取得
         async function fetchLawData(lawName) {
             try {
                 const lawId = lawIdMap.get(lawName);
                 if (!lawId) {
-                    // LawIdが見つからない場合、リストから再取得
                     await fetchLawList();
                     const retryLawId = lawIdMap.get(lawName);
                     if (!retryLawId) {
@@ -358,7 +455,7 @@
             try {
                 const detailUrl = `https://elaws.e-gov.go.jp/api/1/lawdata/${lawId}`;
                 const response = await fetch(detailUrl);
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -371,13 +468,11 @@
             }
         }
 
-        // XMLをMarkdownに変換
         function parseToMarkdown(xmlText, lawName) {
             try {
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
-                // XMLパースエラーチェック
                 const parseError = xmlDoc.querySelector("parsererror");
                 if (parseError) {
                     throw new Error("XMLのパースに失敗しました");
@@ -439,11 +534,10 @@
             }
         }
 
-        // 法令リストを取得
         async function loadLaws() {
             try {
                 allLaws = await fetchLawList();
-                filteredLaws = []; // 最初は非表示
+                filteredLaws = [];
                 document.getElementById('loading').style.display = 'none';
                 showSuccess(`${allLaws.length}件の法令を読み込みました！検索してください。`);
             } catch (error) {
@@ -452,7 +546,44 @@
             }
         }
 
-        // 検索機能
+        // 選択中の法令を別枠で表示する関数
+        function updateSelectedLawsDisplay() {
+            const section = document.getElementById('selected-laws-section');
+            const list = document.getElementById('selected-laws-list');
+            const count = document.getElementById('selected-laws-count');
+
+            count.textContent = selectedLaws.size;
+
+            if (selectedLaws.size > 0) {
+                section.style.display = 'block';
+                list.innerHTML = '';
+
+                Array.from(selectedLaws).sort().forEach(law => {
+                    const lawType = getLawType(law);
+                    const tag = document.createElement('div');
+                    tag.className = 'selected-law-tag';
+                    tag.innerHTML = `
+                        <span class="law-type-badge ${lawType.className}">${lawType.label}</span>
+                        <span>${law}</span>
+                        <span class="remove-btn" data-law="${law.replace(/"/g, '&quot;')}">×</span>
+                    `;
+
+                    tag.querySelector('.remove-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const lawToRemove = e.target.dataset.law;
+                        selectedLaws.delete(lawToRemove);
+                        updateSelectedCount();
+                        updateSelectedLawsDisplay();
+                        renderLaws();
+                    });
+
+                    list.appendChild(tag);
+                });
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
         document.getElementById('search-input').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
             if (query) {
@@ -465,18 +596,21 @@
             renderLaws();
         });
 
-        // 法令リストを表示
         function renderLaws() {
             const container = document.getElementById('law-list');
             container.innerHTML = '';
-            
+
             filteredLaws.forEach(law => {
+                const lawType = getLawType(law);
                 const item = document.createElement('div');
                 item.className = 'law-item';
                 const checkboxId = `law-${law.replace(/[^a-zA-Z0-9]/g, '-')}`;
                 item.innerHTML = `
                     <input type="checkbox" id="${checkboxId}" value="${law.replace(/"/g, '&quot;')}">
-                    <label for="${checkboxId}">${law}</label>
+                    <label for="${checkboxId}">
+                        <span class="law-type-badge ${lawType.className}">${lawType.label}</span>
+                        ${law}
+                    </label>
                 `;
                 const checkbox = item.querySelector('input');
                 checkbox.checked = selectedLaws.has(law);
@@ -487,13 +621,13 @@
                         selectedLaws.delete(law);
                     }
                     updateSelectedCount();
+                    updateSelectedLawsDisplay();
                 });
                 container.appendChild(item);
             });
             updateSelectAllCheckbox();
         }
 
-        // すべて選択/解除
         document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
             filteredLaws.forEach(law => {
                 if (e.target.checked) {
@@ -504,6 +638,7 @@
             });
             renderLaws();
             updateSelectedCount();
+            updateSelectedLawsDisplay();
         });
 
         function updateSelectAllCheckbox() {
@@ -511,7 +646,6 @@
             document.getElementById('select-all-checkbox').checked = allChecked;
         }
 
-        // 選択数を更新
         function updateSelectedCount() {
             const count = selectedLaws.size;
             document.getElementById('selected-count').textContent = `選択された法令: ${count}件`;
@@ -519,7 +653,6 @@
             updateSelectAllCheckbox();
         }
 
-        // ダウンロード
         document.getElementById('download-btn').addEventListener('click', async () => {
             if (selectedLaws.size === 0) return;
 
@@ -528,58 +661,79 @@
             btn.textContent = 'ダウンロード中...';
 
             try {
-                const zip = new JSZip();
                 const lawNames = Array.from(selectedLaws);
-                let successCount = 0;
-                let errorCount = 0;
 
-                // 進捗表示
-                const progressDiv = document.createElement('div');
-                progressDiv.className = 'loading';
-                progressDiv.id = 'download-progress';
-                progressDiv.textContent = `0/${lawNames.length} 件処理中...`;
-                const buttonGroup = document.querySelector('.button-group');
-                buttonGroup.parentElement.insertBefore(progressDiv, buttonGroup);
+                // 1件の場合は直接MDファイルをダウンロード
+                if (lawNames.length === 1) {
+                    const lawName = lawNames[0];
+                    const { xmlText, lawName: fetchedLawName } = await fetchLawData(lawName);
+                    const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName);
+                    const safeName = sanitizeFilename(fetchedLawName || lawName);
+                    const filename = `${safeName}.md`;
 
-                for (let i = 0; i < lawNames.length; i++) {
-                    const lawName = lawNames[i];
-                    progressDiv.textContent = `${i + 1}/${lawNames.length} 件処理中... (${lawName})`;
+                    const blob = new Blob([mdOutput], { type: 'text/markdown' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
 
-                    try {
-                        const { xmlText, lawName: fetchedLawName } = await fetchLawData(lawName);
-                        const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName);
-                        const safeName = sanitizeFilename(fetchedLawName || lawName);
-                        const filename = `${safeName}.md`;
-                        zip.file(filename, mdOutput);
-                        successCount++;
-                    } catch (error) {
-                        console.error(`Failed to download ${lawName}:`, error);
-                        errorCount++;
-                    }
-                }
-
-                progressDiv.remove();
-
-                if (successCount === 0) {
-                    throw new Error('すべての法令のダウンロードに失敗しました');
-                }
-
-                // ZIPファイルを生成
-                const blob = await zip.generateAsync({ type: "blob" });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-                a.download = `法令_${timestamp}.zip`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-
-                if (errorCount > 0) {
-                    showError(`${successCount}件のダウンロードに成功しましたが、${errorCount}件は失敗しました。`);
+                    showSuccess(`「${fetchedLawName || lawName}」をダウンロードしました！`);
                 } else {
-                    showSuccess(`${successCount}件の法令をダウンロードしました！`);
+                    // 複数件の場合はZIPファイルでダウンロード
+                    const zip = new JSZip();
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    const progressDiv = document.createElement('div');
+                    progressDiv.className = 'loading';
+                    progressDiv.id = 'download-progress';
+                    progressDiv.textContent = `0/${lawNames.length} 件処理中...`;
+                    const buttonGroup = document.querySelector('.button-group');
+                    buttonGroup.parentElement.insertBefore(progressDiv, buttonGroup);
+
+                    for (let i = 0; i < lawNames.length; i++) {
+                        const lawName = lawNames[i];
+                        progressDiv.textContent = `${i + 1}/${lawNames.length} 件処理中... (${lawName})`;
+
+                        try {
+                            const { xmlText, lawName: fetchedLawName } = await fetchLawData(lawName);
+                            const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName);
+                            const safeName = sanitizeFilename(fetchedLawName || lawName);
+                            const filename = `${safeName}.md`;
+                            zip.file(filename, mdOutput);
+                            successCount++;
+                        } catch (error) {
+                            console.error(`Failed to download ${lawName}:`, error);
+                            errorCount++;
+                        }
+                    }
+
+                    progressDiv.remove();
+
+                    if (successCount === 0) {
+                        throw new Error('すべての法令のダウンロードに失敗しました');
+                    }
+
+                    const blob = await zip.generateAsync({ type: "blob" });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                    a.download = `法令_${timestamp}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+
+                    if (errorCount > 0) {
+                        showError(`${successCount}件のダウンロードに成功しましたが、${errorCount}件は失敗しました。`);
+                    } else {
+                        showSuccess(`${successCount}件の法令をダウンロードしました！`);
+                    }
                 }
             } catch (error) {
                 showError('ダウンロードに失敗しました: ' + error.message);
@@ -589,11 +743,11 @@
             }
         });
 
-        // 選択をクリア
         document.getElementById('clear-btn').addEventListener('click', () => {
             selectedLaws.clear();
             renderLaws();
             updateSelectedCount();
+            updateSelectedLawsDisplay();
         });
 
         function showError(message) {
@@ -610,9 +764,7 @@
             setTimeout(() => el.style.display = 'none', 5000);
         }
 
-        // 初期化
         loadLaws();
     </script>
 </body>
 </html>
-
