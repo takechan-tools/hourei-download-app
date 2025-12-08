@@ -375,7 +375,11 @@
             if (lawName.endsWith('令') && !lawName.endsWith('規則')) {
                 return { type: '政令', label: '令', className: 'law-type-政令' };
             }
-            // 法律（法）をチェック（「施行法」「特例法」などは除外しない）
+            // 法律（「法律」で終わるもの）
+            if (lawName.endsWith('法律')) {
+                return { type: '法律', label: '法', className: 'law-type-法律' };
+            }
+            // 法律（「法」で終わるもの、ただし「施行令」「規則」は除外）
             if (lawName.endsWith('法') && !lawName.endsWith('施行令') && !lawName.endsWith('規則')) {
                 return { type: '法律', label: '法', className: 'law-type-法律' };
             }
