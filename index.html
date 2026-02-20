@@ -82,7 +82,8 @@
 
         /* 選択中の法令セクション */
         .selected-laws-section {
-            margin-bottom: 30px;
+            margin-top: 15px;
+            margin-bottom: 15px;
             padding: 15px;
             background: #eff6ff;
             border: 2px solid #3b82f6;
@@ -347,12 +348,6 @@
             <div id="error-message" class="error" style="display: none;"></div>
             <div id="success-message" class="success" style="display: none;"></div>
 
-            <!-- 選択中の法令セクション -->
-            <div id="selected-laws-section" class="selected-laws-section">
-                <h3>📌 選択中の法令 (<span id="selected-laws-count">0</span>件)</h3>
-                <div id="selected-laws-list" class="selected-laws-list"></div>
-            </div>
-
             <div class="search-box">
                 <input type="text" id="search-input" placeholder="法令名で検索（例：著作権法、消費税法）">
             </div>
@@ -368,6 +363,13 @@
                     <label for="select-all-checkbox">すべて選択 / すべて解除</label>
                 </div>
                 <div class="law-list" id="law-list"></div>
+
+                <!-- 選択中の法令セクション -->
+                <div id="selected-laws-section" class="selected-laws-section">
+                    <h3>📌 選択中の法令 (<span id="selected-laws-count">0</span>件)</h3>
+                    <div id="selected-laws-list" class="selected-laws-list"></div>
+                </div>
+
                 <div class="selected-count" id="selected-count">選択された法令: 0件</div>
                 <div class="download-options">
                     <label>
