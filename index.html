@@ -218,6 +218,36 @@
             background: #e0e0e0;
         }
 
+        .download-options {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .download-options label {
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #475569;
+        }
+
+        .download-options input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .download-options .option-description {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+            margin-left: 24px;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -339,6 +369,13 @@
                 </div>
                 <div class="law-list" id="law-list"></div>
                 <div class="selected-count" id="selected-count">選択された法令: 0件</div>
+                <div class="download-options">
+                    <label>
+                        <input type="checkbox" id="show-paragraph1-num">
+                        第1項に項番号「１」を表示する
+                    </label>
+                    <div class="option-description">複数の項がある条文で、第1項に「１」を付けます（デフォルトではe-Gov原文のとおり省略）</div>
+                </div>
                 <div class="button-group">
                     <button class="btn btn-primary" id="download-btn" disabled>選択した法令をダウンロード</button>
                     <button class="btn btn-secondary" id="clear-btn">選択をクリア</button>
@@ -468,7 +505,8 @@
             }
         }
 
-        function parseToMarkdown(xmlText, lawName) {
+        function parseToMarkdown(xmlText, lawName, options = {}) {
+            const { showParagraph1Num = false } = options;
             try {
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -492,12 +530,18 @@
                     markdownText += `## ${titleText} ${captionText}\n`;
 
                     const paragraphs = article.querySelectorAll("Paragraph");
+                    const hasMultipleParagraphs = paragraphs.length > 1;
                     paragraphs.forEach(p => {
                         const pNum = p.querySelector("ParagraphNum");
                         const pSent = p.querySelector("Sentence");
 
-                        const numText = pNum ? (pNum.textContent || "").trim() : "";
+                        let numText = pNum ? (pNum.textContent || "").trim() : "";
                         const sentText = pSent ? (pSent.textContent || "").trim() : "";
+
+                        // 複数項がある条文で第1項の番号が空の場合、「１」を補完
+                        if (showParagraph1Num && hasMultipleParagraphs && numText === "") {
+                            numText = "１";
+                        }
 
                         markdownText += `- **${numText}**: ${sentText}\n`;
 
@@ -662,12 +706,14 @@
 
             try {
                 const lawNames = Array.from(selectedLaws);
+                const showParagraph1Num = document.getElementById('show-paragraph1-num').checked;
+                const parseOptions = { showParagraph1Num };
 
                 // 1件の場合は直接MDファイルをダウンロード
                 if (lawNames.length === 1) {
                     const lawName = lawNames[0];
                     const { xmlText, lawName: fetchedLawName } = await fetchLawData(lawName);
-                    const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName);
+                    const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName, parseOptions);
                     const safeName = sanitizeFilename(fetchedLawName || lawName);
                     const filename = `${safeName}.md`;
 
@@ -701,7 +747,7 @@
 
                         try {
                             const { xmlText, lawName: fetchedLawName } = await fetchLawData(lawName);
-                            const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName);
+                            const mdOutput = parseToMarkdown(xmlText, fetchedLawName || lawName, parseOptions);
                             const safeName = sanitizeFilename(fetchedLawName || lawName);
                             const filename = `${safeName}.md`;
                             zip.file(filename, mdOutput);
