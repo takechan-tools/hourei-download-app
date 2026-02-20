@@ -518,57 +518,152 @@
 
                 let markdownText = `# ${lawName}\n\n`;
 
-                const articles = xmlDoc.querySelectorAll("Article");
+                // 制定文（EnactStatement）を取得
+                const enactStatement = xmlDoc.querySelector("EnactStatement");
+                if (enactStatement) {
+                    const enactText = (enactStatement.textContent || "").trim();
+                    if (enactText) {
+                        markdownText += `${enactText}\n\n`;
+                    }
+                }
 
-                articles.forEach(article => {
-                    const articleCaption = article.querySelector("ArticleCaption");
-                    const articleTitle = article.querySelector("ArticleTitle");
+                // ParagraphSentence/ItemSentence内の全Sentenceを結合して取得
+                function getSentenceText(parent, sentenceContainerTag) {
+                    const container = parent.querySelector(sentenceContainerTag);
+                    if (container) {
+                        const sentences = container.querySelectorAll("Sentence");
+                        return Array.from(sentences).map(s => (s.textContent || "").trim()).filter(t => t).join("");
+                    }
+                    // フォールバック: 直接Sentenceを探す
+                    const sent = parent.querySelector("Sentence");
+                    return sent ? (sent.textContent || "").trim() : "";
+                }
 
-                    const captionText = articleCaption ? (articleCaption.textContent || "").trim() : "";
-                    const titleText = articleTitle ? (articleTitle.textContent || "").trim() : "";
-
-                    markdownText += `## ${titleText} ${captionText}\n`;
-
-                    const paragraphs = article.querySelectorAll("Paragraph");
-                    const hasMultipleParagraphs = paragraphs.length > 1;
+                // 項・号・サブ項目を解析する共通関数
+                function parseParagraphs(paragraphs, indent = "") {
+                    let text = "";
+                    const hasMultiple = paragraphs.length > 1;
                     paragraphs.forEach(p => {
                         const pNum = p.querySelector("ParagraphNum");
-                        const pSent = p.querySelector("Sentence");
-
                         let numText = pNum ? (pNum.textContent || "").trim() : "";
-                        const sentText = pSent ? (pSent.textContent || "").trim() : "";
+                        const sentText = getSentenceText(p, "ParagraphSentence");
 
-                        // 複数項がある条文で第1項の番号が空の場合、「１」を補完
-                        if (showParagraph1Num && hasMultipleParagraphs && numText === "") {
+                        if (showParagraph1Num && hasMultiple && numText === "") {
                             numText = "１";
                         }
 
-                        markdownText += `- **${numText}**: ${sentText}\n`;
+                        text += `${indent}- **${numText}**: ${sentText}\n`;
 
-                        const items = p.querySelectorAll("Item");
+                        // 直接の子Item要素のみ取得（ネストされたSubitemのItemは除外）
+                        const items = Array.from(p.children).filter(c => c.tagName === "Item");
                         items.forEach(item => {
                             const iTitle = item.querySelector("ItemTitle");
-                            const iSent = item.querySelector("Sentence");
-
                             const itText = iTitle ? (iTitle.textContent || "").trim() : "";
-                            const isText = iSent ? (iSent.textContent || "").trim() : "";
+                            const isText = getSentenceText(item, "ItemSentence");
 
-                            markdownText += `    - **${itText}**: ${isText}\n`;
+                            text += `${indent}    - **${itText}**: ${isText}\n`;
 
-                            const subitems1 = item.querySelectorAll("Subitem1");
+                            const subitems1 = Array.from(item.children).filter(c => c.tagName === "Subitem1");
                             subitems1.forEach(sub1 => {
                                 const s1Title = sub1.querySelector("Subitem1Title");
-                                const s1Sent = sub1.querySelector("Sentence");
-
                                 const s1_t_text = s1Title ? (s1Title.textContent || "").trim() : "";
-                                const s1_s_text = s1Sent ? (s1Sent.textContent || "").trim() : "";
+                                const s1_s_text = getSentenceText(sub1, "Subitem1Sentence");
 
-                                markdownText += `        - **${s1_t_text}**: ${s1_s_text}\n`;
+                                text += `${indent}        - **${s1_t_text}**: ${s1_s_text}\n`;
                             });
                         });
                     });
+                    return text;
+                }
 
-                    markdownText += "\n";
+                // Article（条）を解析する共通関数
+                function parseArticles(articles) {
+                    let text = "";
+                    articles.forEach(article => {
+                        const articleCaption = article.querySelector("ArticleCaption");
+                        const articleTitle = article.querySelector("ArticleTitle");
+
+                        const captionText = articleCaption ? (articleCaption.textContent || "").trim() : "";
+                        const titleText = articleTitle ? (articleTitle.textContent || "").trim() : "";
+
+                        text += `## ${titleText} ${captionText}\n`;
+
+                        const paragraphs = Array.from(article.children).filter(c => c.tagName === "Paragraph");
+                        text += parseParagraphs(paragraphs);
+                        text += "\n";
+                    });
+                    return text;
+                }
+
+                // 構造要素（Chapter/Section等）を再帰的に解析する関数
+                function parseProvisionChildren(parent) {
+                    let text = "";
+                    Array.from(parent.children).forEach(child => {
+                        switch (child.tagName) {
+                            case "Part": {
+                                const title = child.querySelector("PartTitle");
+                                if (title) text += `## ${(title.textContent || "").trim()}\n\n`;
+                                text += parseProvisionChildren(child);
+                                break;
+                            }
+                            case "Chapter": {
+                                const title = child.querySelector("ChapterTitle");
+                                if (title) text += `## ${(title.textContent || "").trim()}\n\n`;
+                                text += parseProvisionChildren(child);
+                                break;
+                            }
+                            case "Section": {
+                                const title = child.querySelector("SectionTitle");
+                                if (title) text += `### ${(title.textContent || "").trim()}\n\n`;
+                                text += parseProvisionChildren(child);
+                                break;
+                            }
+                            case "Subsection": {
+                                const title = child.querySelector("SubsectionTitle");
+                                if (title) text += `#### ${(title.textContent || "").trim()}\n\n`;
+                                text += parseProvisionChildren(child);
+                                break;
+                            }
+                            case "Division": {
+                                const title = child.querySelector("DivisionTitle");
+                                if (title) text += `##### ${(title.textContent || "").trim()}\n\n`;
+                                text += parseProvisionChildren(child);
+                                break;
+                            }
+                            case "Article": {
+                                text += parseArticles([child]);
+                                break;
+                            }
+                            case "Paragraph": {
+                                text += parseParagraphs([child]);
+                                break;
+                            }
+                        }
+                    });
+                    return text;
+                }
+
+                // MainProvision（本則）を解析
+                const mainProvision = xmlDoc.querySelector("MainProvision");
+                if (mainProvision) {
+                    markdownText += parseProvisionChildren(mainProvision);
+                }
+
+                // SupplProvision（附則）を解析（原始附則のみ、改正附則は除外）
+                const supplProvisions = xmlDoc.querySelectorAll("SupplProvision");
+                supplProvisions.forEach(suppl => {
+                    // AmendLawNum属性がある場合は改正法令の附則なので除外
+                    if (suppl.getAttribute("AmendLawNum")) return;
+
+                    const label = suppl.querySelector("SupplProvisionLabel");
+                    if (label) {
+                        markdownText += `## ${(label.textContent || "").trim()}\n\n`;
+                    }
+
+                    const supplText = parseProvisionChildren(suppl);
+                    if (supplText) {
+                        markdownText += supplText;
+                    }
                 });
 
                 return markdownText;

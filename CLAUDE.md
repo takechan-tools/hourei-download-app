@@ -35,22 +35,53 @@ e-Gov法令APIから日本の法令を検索し、Markdown形式でダウンロ�
 
 ### XMLからMarkdown変換 (`parseToMarkdown`)
 
-e-Gov APIが返すXMLの階層構造:
+e-Gov APIが返すXMLの完全な階層構造（公式スキーマ: XMLSchemaForJapaneseLaw_v3.xsd）:
+
 ```
-Article（条）
-├── ArticleTitle（条番号: 第1条）
-├── ArticleCaption（条見出し）
-└── Paragraph（項）
-    ├── ParagraphNum（項番号: ２、３...）
-    ├── Sentence（本文）
-    └── Item（号）
-        ├── ItemTitle（号番号: 一、二...）
-        ├── Sentence（本文）
-        └── Subitem1（サブ項目）
+Law
+└── LawBody
+    ├── LawTitle（法令名）
+    ├── EnactStatement（制定文）
+    ├── TOC（目次）
+    ├── Preamble（前文）
+    ├── MainProvision（本則）
+    │   ├── Part（編）> Chapter（章）> Section（節）> Subsection（款）> Division（目）> Article
+    │   ├── Article（条）※ Chapter等なしで直接配置される場合もある
+    │   │   ├── ArticleCaption（条見出し: （定義）等）
+    │   │   ├── ArticleTitle（条番号: 第一条）
+    │   │   └── Paragraph（項）
+    │   │       ├── ParagraphNum（項番号: 空/２/３...）
+    │   │       ├── ParagraphSentence > Sentence（本文）
+    │   │       └── Item（号）
+    │   │           ├── ItemTitle（号番号: 一/二...）
+    │   │           ├── ItemSentence > Sentence（本文）
+    │   │           └── Subitem1 > Subitem2 > ... > Subitem10
+    │   └── Paragraph（項）※ Articleなしで直接配置される短い省令等
+    ├── SupplProvision（附則）※複数存在しうる
+    │   ├── 属性: AmendLawNum（改正法令番号。空=""なら原始附則）
+    │   ├── 属性: Extract（"true"なら抄録）
+    │   ├── SupplProvisionLabel（「附　則」等）
+    │   ├── Article / Paragraph（附則本文）
+    │   └── Chapter等（章立ての附則）
+    ├── AppdxTable（別表）
+    ├── AppdxNote（別記）
+    ├── AppdxStyle（別記様式）
+    ├── AppdxFig（別図）
+    └── AppdxFormat（別記書式）
 ```
 
-**注意**: e-Gov APIのXMLでは、第1項の`ParagraphNum`は空（テキストなし）。
-第2項以降は「２」「３」等の数字が入る。
+**重要な注意点**:
+- `ParagraphNum`: 第1項は空要素。第2項以降に「２」「３」等が入る
+- `ParagraphSentence` > `Sentence`: Sentenceが複数ある場合あり（ただし書き等）
+- `Sentence`属性: `Function="main"/"proviso"`, `WritingMode="vertical"/"horizontal"`
+- `SupplProvision`: `AmendLawNum`属性がある場合は改正法令の附則（原始附則のみ出力すべき）
+- 短い省令は`Article`なしで`MainProvision`直下に`Paragraph`が配置される
+- 法令によって`Chapter`/`Section`等の階層構造が異なる
+
+**公式ドキュメント**:
+- XMLスキーマ: https://laws.e-gov.go.jp/file/XMLSchemaForJapaneseLaw_v3.xsd
+- 構造説明: https://laws.e-gov.go.jp/docs/law-data-basic/8ebd8bc-law-structure-and-xml/
+- API仕様: https://laws.e-gov.go.jp/docs/law-data-basic/8529371-law-api-v1/
 
 ### ファイル名サニタイズ (`sanitizeFilename`)
 
