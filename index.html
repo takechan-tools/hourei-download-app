@@ -363,13 +363,6 @@
                     <label for="select-all-checkbox">すべて選択 / すべて解除</label>
                 </div>
                 <div class="law-list" id="law-list"></div>
-
-                <!-- 選択中の法令セクション -->
-                <div id="selected-laws-section" class="selected-laws-section">
-                    <h3>📌 選択中の法令 (<span id="selected-laws-count">0</span>件)</h3>
-                    <div id="selected-laws-list" class="selected-laws-list"></div>
-                </div>
-
                 <div class="selected-count" id="selected-count">選択された法令: 0件</div>
                 <div class="download-options">
                     <label>
@@ -382,6 +375,12 @@
                     <button class="btn btn-primary" id="download-btn" disabled>選択した法令をダウンロード</button>
                     <button class="btn btn-secondary" id="clear-btn">選択をクリア</button>
                 </div>
+            </div>
+
+            <!-- 選択中の法令セクション（検索欄が空でも表示） -->
+            <div id="selected-laws-section" class="selected-laws-section">
+                <h3>📌 選択中の法令 (<span id="selected-laws-count">0</span>件)</h3>
+                <div id="selected-laws-list" class="selected-laws-list"></div>
             </div>
         </div>
     </div>
