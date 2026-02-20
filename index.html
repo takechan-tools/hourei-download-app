@@ -732,6 +732,8 @@
             } else {
                 filteredLaws = [];
                 document.getElementById('law-list-container').style.display = 'none';
+                // 検索欄が空でも選択中の法令セクションは表示を維持する
+                updateSelectedLawsDisplay();
             }
             renderLaws();
         });
