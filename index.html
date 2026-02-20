@@ -357,12 +357,14 @@
 
             <div id="loading" class="loading">法令リストを読み込み中...</div>
 
-            <div id="law-list-container" style="display: none;">
-                <div class="select-all">
+            <div id="law-list-container">
+                <div class="select-all" id="select-all-area" style="display: none;">
                     <input type="checkbox" id="select-all-checkbox">
                     <label for="select-all-checkbox">すべて選択 / すべて解除</label>
                 </div>
-                <div class="law-list" id="law-list"></div>
+                <div class="law-list" id="law-list">
+                    <div style="text-align: center; padding: 30px; color: #94a3b8;">キーワードを入力して法令を検索してください</div>
+                </div>
                 <div class="selected-count" id="selected-count">選択された法令: 0件</div>
                 <div class="download-options">
                     <label>
@@ -728,19 +730,24 @@
             const query = e.target.value.toLowerCase();
             if (query) {
                 filteredLaws = allLaws.filter(law => law.toLowerCase().includes(query));
-                document.getElementById('law-list-container').style.display = 'block';
             } else {
                 filteredLaws = [];
-                document.getElementById('law-list-container').style.display = 'none';
-                // 検索欄が空でも選択中の法令セクションは表示を維持する
-                updateSelectedLawsDisplay();
             }
             renderLaws();
         });
 
         function renderLaws() {
             const container = document.getElementById('law-list');
+            const selectAllArea = document.getElementById('select-all-area');
             container.innerHTML = '';
+
+            if (filteredLaws.length === 0) {
+                selectAllArea.style.display = 'none';
+                container.innerHTML = '<div style="text-align: center; padding: 30px; color: #94a3b8;">キーワードを入力して法令を検索してください</div>';
+                return;
+            }
+
+            selectAllArea.style.display = 'flex';
 
             filteredLaws.forEach(law => {
                 const lawType = getLawType(law);
