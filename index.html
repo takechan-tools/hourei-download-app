@@ -535,7 +535,15 @@
                     const container = parent.querySelector(sentenceContainerTag);
                     if (container) {
                         const sentences = container.querySelectorAll("Sentence");
-                        return Array.from(sentences).map(s => (s.textContent || "").trim()).filter(t => t).join("");
+                        if (sentences.length > 0) {
+                            return Array.from(sentences).map(s => (s.textContent || "").trim()).filter(t => t).join("");
+                        }
+                        // Column構造（Column直下にSentenceがなくテキスト直書きの場合）
+                        const columns = container.querySelectorAll("Column");
+                        if (columns.length > 0) {
+                            return Array.from(columns).map(c => (c.textContent || "").trim()).filter(t => t).join("　");
+                        }
+                        return (container.textContent || "").trim();
                     }
                     // フォールバック: 直接Sentenceを探す
                     const sent = parent.querySelector("Sentence");

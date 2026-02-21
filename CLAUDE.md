@@ -77,6 +77,7 @@ Law
 - `SupplProvision`: `AmendLawNum`属性がある場合は改正法令の附則（原始附則のみ出力すべき）
 - 短い省令は`Article`なしで`MainProvision`直下に`Paragraph`が配置される
 - 法令によって`Chapter`/`Section`等の階層構造が異なる
+- **`ItemSentence`内にColumnがある場合**: `ItemSentence > Column（Sentenceなし）` 形式でテキスト直書きされる法令がある（例: 民法第98条2項 令和5年改正版）。`querySelectorAll("Sentence")` がヒットしない場合は `querySelectorAll("Column")` の `textContent` を全角スペース区切りで結合する
 
 **公式ドキュメント**:
 - XMLスキーマ: https://laws.e-gov.go.jp/file/XMLSchemaForJapaneseLaw_v3.xsd
